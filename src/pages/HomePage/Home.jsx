@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import CanvasDraw from 'react-canvas-draw';
 import jsPDF from 'jspdf';
 import './Home.css';
+
 function Home() {
   const [page, setPage] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -9,11 +10,15 @@ function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawings, setDrawings] = useState({});
+  const [audioFiles, setAudioFiles] = useState({});
+  const [fullscreenBgColor, setFullscreenBgColor] = useState('bg-white'); // State for fullscreen background color
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [selectedAudioFile, setSelectedAudioFile] = useState(null);
   const bookRef = useRef(null);
   const canvasRefs = useRef([]);
 
   const pages = [
-    "Cover: Welcome to the book!",
+    "Cover: Welcome to the book! ",
     "Page 1: This is the first page of the book.",
     "Page 2: This is the second page of the book.",
     "Page 3: This is the third page of the book.",
@@ -57,6 +62,7 @@ function Home() {
       } else if (bookRef.current.msRequestFullscreen) {
         bookRef.current.msRequestFullscreen();
       }
+      setFullscreenBgColor('bg-white'); // Set background color to white when entering fullscreen
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
@@ -67,6 +73,7 @@ function Home() {
       } else if (document.msExitFullscreen) {
         document.msExitFullscreen();
       }
+      setFullscreenBgColor(''); // Reset background color when exiting fullscreen
     }
     setIsFullscreen(!isFullscreen);
   };
@@ -81,6 +88,22 @@ function Home() {
     setIsDrawing(false);
   };
 
+  const handleAudioUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedAudioFile(URL.createObjectURL(file));
+    }
+  };
+
+  const saveAudio = () => {
+    setAudioFiles((prevAudioFiles) => ({
+      ...prevAudioFiles,
+      [page]: selectedAudioFile,
+    }));
+    setSelectedAudioFile(null);
+    setIsAudioModalOpen(false);
+  };
+
   const downloadAsPDF = () => {
     const doc = new jsPDF();
     pages.forEach((text, index) => {
@@ -89,16 +112,19 @@ function Home() {
         const imgData = canvasRefs.current[index].current.canvas.drawing.toDataURL('image/png');
         doc.addImage(imgData, 'PNG', 10, 20, 180, 160);
       }
+      if (audioFiles[index]) {
+        doc.text("Audio File Attached", 10, 190);
+      }
       if (index < pages.length - 1) {
         doc.addPage();
       }
     });
-    doc.save('book_with_notes.pdf');
+    doc.save('book_with_notes_and_audio.pdf');
   };
 
   return (
     <div className="App">
-      <div ref={bookRef} className="book" style={{ transform: `scale(${zoom})` }}>
+      <div ref={bookRef} className={`book ${fullscreenBgColor}`} style={{ transform: `scale(${zoom})` }}>
         {page === 0 ? (
           <div className="book-page single">
             {pages[page]}
@@ -107,11 +133,18 @@ function Home() {
                 disabled={!isDrawing}
                 hideInterface
                 immediateLoading
+                grid={false}
                 saveData={drawings[page]}
                 ref={canvasRefs.current[page]}
               />
             )}
             {!drawings[page] && isDrawing && <CanvasDraw ref={canvasRefs.current[page]} />}
+            {audioFiles[page] && (
+              <audio controls>
+                <source src={audioFiles[page]} type="audio/mpeg" />
+                Your browser does not support the audio element.
+              </audio>
+            )}
           </div>
         ) : (
           <>
@@ -124,9 +157,16 @@ function Home() {
                   immediateLoading
                   saveData={drawings[page]}
                   ref={canvasRefs.current[page]}
+                  grid={false}
                 />
               )}
               {!drawings[page] && isDrawing && <CanvasDraw ref={canvasRefs.current[page]} />}
+              {audioFiles[page] && (
+                <audio controls>
+                  <source src={audioFiles[page]} type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              )}
             </div>
             {page + 1 < pages.length && (
               <div className="book-page">
@@ -138,12 +178,24 @@ function Home() {
                     immediateLoading
                     saveData={drawings[page + 1]}
                     ref={canvasRefs.current[page + 1]}
+                    grid={false}
                   />
                 )}
                 {!drawings[page + 1] && isDrawing && <CanvasDraw ref={canvasRefs.current[page + 1]} />}
+                {audioFiles[page + 1] && (
+                  <audio controls>
+                    <source src={audioFiles[page + 1]} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                  </audio>
+                )}
               </div>
             )}
           </>
+        )}
+        {isFullscreen && (
+          <button onClick={toggleFullscreen} className="exit-fullscreen-button">
+            Exit Fullscreen
+          </button>
         )}
       </div>
       <div className="buttons">
@@ -156,6 +208,7 @@ function Home() {
       </button>
       <button onClick={toggleDrawing} className="note-button">Add Note</button>
       {isDrawing && <button onClick={saveDrawing} className="save-button">Save Note</button>}
+      <button onClick={() => setIsAudioModalOpen(true)} className="audio-button">Audio</button>
       <button onClick={downloadAsPDF} className="download-button">Download as PDF</button>
 
       {isModalOpen && (
@@ -164,6 +217,17 @@ function Home() {
             <button onClick={zoomIn}>Zoom In</button>
             <button onClick={zoomOut}>Zoom Out</button>
             <button onClick={toggleModal}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {isAudioModalOpen && (
+        <div className="modal">
+          <div className="modal-content">
+            <input type="file" accept="audio/*" onChange={handleAudioUpload}
+            />
+            <button onClick={saveAudio} disabled={!selectedAudioFile}>Save Audio</button>
+            <button onClick={() => setIsAudioModalOpen(false)}>Close</button>
           </div>
         </div>
       )}

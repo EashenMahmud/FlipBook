@@ -15,8 +15,7 @@
   .book-page {
     border: 1px solid #ccc;
     padding: 20px;
-    width: 300px;
-    height: 200px;
+    
     display: flex;
     align-items: center;
     justify-content: center;
